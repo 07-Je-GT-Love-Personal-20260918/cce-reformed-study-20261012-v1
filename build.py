@@ -2,6 +2,7 @@ from pathlib import Path
 import json, html
 from content import *
 from books import render_books, BOOKS
+from lat import LAT, TREE
 
 ROOT=Path(__file__).resolve().parent
 E=html.escape
@@ -57,7 +58,7 @@ discussion='<button id="answersToggle" aria-expanded="true">暂藏答案，先�
 for i,(q,a,app) in enumerate(QUESTIONS):
     discussion+=f'<article class="qa"><h3>{i+1:02} · {q}</h3><div class="qa-answer"><p><b>分析：</b>{a}</p><p class="application"><b>进一步操练：</b>{app}</p></div></article>'
 
-sources='<div class="callout gold"><b>怎样辨认本页不同层次的内容</b><p><b>原书导读：</b>有明确原书或作者文章链接的概述。<b>历史延伸：</b>时间线附事件来源。<b>神学评析与实践：</b>本导读的原创归纳与应用，不冒充作者原话或信条直接条款。</p></div><ol class="source-list">'
+sources='<div class="callout gold"><b>怎样辨认本页不同层次的内容</b><p><b>延伸阅读：</b>以下含前期中文文集研究的资料，不是Clark与Jain全书的来源。<b>历史延伸：</b>时间线附事件来源。<b>神学评析与实践：</b>本导读的原创归纳与应用，不冒充作者原话或信条直接条款。</p></div><ol class="source-list">'
 for id,name,desc,url in SOURCES:sources+=f'<li id="source-{id}"><b>{name}</b><p>{desc}</p><a href="{E(url)}" target="_blank" rel="noopener noreferrer">打开来源 ↗</a></li>'
 sources+='''</ol><p class="source-note">历史节点另附大学、学校、协会与史料机构链接。地理底图由Natural Earth公开数据绘制：<a href="https://www.naturalearthdata.com/about/terms-of-use/">Public domain</a>。页面未收录原书PDF或大段正文。时间线是精选教育史节点，不是完整教会史；概略年代、争议与事件性质已尽量区分。资料核对：2026-10-12。</p>'''
 
@@ -70,14 +71,23 @@ for a in ARTICLES:
         parts.append(section('geography','05','地理 · 语言 · 区域文化','把人物放回他真实生活的地方','点击地图数字或地点按钮，查看地域与教育问题的联系。',mapbody))
     parts.append(article(a))
 parts += [article(a) for a in ARTICLES_MORE]
-parts += [section('memory','15','主动回忆 · 长期记忆','合上答案，才开始真正记住','不求一次背完；每轮记住几个关键关系，再补充年代。',memory),section('discussion','16','共读讨论 · 答案分析','从“我赞成”，走向“我能说明为什么”','十二个问题，帮助家庭、教师和小组把阅读变成可检验的判断。',discussion),section('sources','18','来源 · 阅读边界','回到原文，也回到证据','本导读从欧陆改革宗立场评析；不把单一作者或教育流派等同于教会共同认信。',sources)]
+parts += [section('memory','15','主动回忆 · 长期记忆','合上答案，才开始真正记住','不求一次背完；每轮记住几个关键关系，再补充年代。',memory),section('discussion','16','共读讨论 · 答案分析','从“我赞成”，走向“我能说明为什么”','十二个问题，帮助家庭、教师和小组把阅读变成可检验的判断。',discussion),section('sources','18','来源 · 阅读边界','延伸来源与阅读边界','本书主读来源已在专题中列明。以下保留历史、认信和其他书籍的延伸资料。',sources)]
 parts.insert(-1,section('book-library','17','主题书目馆 · 中文版本 · 原创评析','沿着问题，找到下一本书','31项核心与关联书目：从古代阅读传统，到现代学校实践，再回到汉语与改革宗对话。',render_books()))
+# Main reading now follows Clark/Jain; retain broad historical and bibliographic extensions.
+retained=[p for p in parts if any(f'id="{id}"' in p[:100] for id in ['timeline','geography','memory','book-library','sources'])]
+parts=[article(a) for a in LAT]+retained
+for i in range(len(parts)):
+    import re
+    parts[i]=re.sub(r'(<div class="section-no">).*?(</div>)',lambda m:m[1]+f'{i+1:02}'+m[2],parts[i],count=1)
+searchbox='<div class="search-box"><label for="search" class="sr-only">搜索本页</label><input id="search" type="search" placeholder="搜索：诗性知识 / 七艺 / 神学 / 恩典"></div><p id="searchStatus" class="source-note" aria-live="polite"></p><ul id="searchResults"></ul>'
+parts[0]=parts[0].replace('<div class="body-content">','<div class="body-content">'+searchbox,1)
+TITLE='自由教育传统｜基督教古典教育哲学深读'
 css=(ROOT/'styles.css').read_text();js=(ROOT/'app.js').read_text()
-data=json.dumps({'places':PLACES,'timeline':TIMELINE},ensure_ascii=False).replace('</','<\\/')
-output=f'''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="《基督教古典教育》深度导读：历史时间线、人物地理、圣约神学、改革宗认信、三艺七艺与家庭课堂实践。"><meta name="theme-color" content="#153e38"><title>{TITLE}｜2026-10-12 v2</title><style>{css}</style></head><body><a class="skip" href="#main">跳到正文</a><header class="topbar"><div class="top-inner"><a class="brand" href="#top"><span class="brand-mark">Cc</span><span><strong>基督教古典教育</strong><small>A REFORMED READING ATLAS</small></span></a><div class="toolbar"><button id="fontToggle" class="font-button" aria-label="调整正文字号">字 A+</button><button id="themeToggle">☾ 深色</button><button id="tocToggle" aria-controls="sidebar" aria-expanded="true">隐藏目录</button></div></div><div class="progress-track"><div id="progress"></div></div></header><div class="layout"><aside id="sidebar" aria-label="详细目录"><div class="toc-label">CONTENTS / 学习目录</div><label class="toc-depth-label">目录深度 <select id="tocDepth"><option value="4">四级 · 全部</option><option value="3">三级 · 到书名</option><option value="2">二级 · 到类别</option><option value="1">一级 · 大纲</option></select></label><nav id="toc"></nav><p class="source-note">19个学习区段<br>31项主题书目<br>16个年代节点<br>10个地理位置<br>12道深入讨论</p></aside><main id="main"><div class="hero" id="top"><div class="hero-grid"><div><div class="eyebrow">READ · THINK · SPEAK · LIVE</div><h1>基督教<br>古典教育<br><em>从圣约到课堂</em></h1><p>知识怎样成为智慧？<br>从原书出发，沿历史与地理展开，以圣经和改革宗认信分辨，让教育回到真实的人与生活。</p><div class="hero-links"><a href="#overview">开始深入阅读 ↗</a><a href="#timeline">先理清人物与年代</a><a href="#book-library">浏览31项主题书目</a></div></div>{bookart}</div><div class="hero-meta"><span>原书：2018年第二次修订版</span><span>王怡 · 苏炳森等著</span><span>导读更新：2026.10.12 · v2</span></div></div><div class="read-route"><span>◎ 原书导读</span><span>⌖ 历史核对</span><span>◇ 改革宗评析</span><span>✦ 家庭与课堂应用</span></div><noscript><div class="callout">正文与答案均可完整阅读；搜索、目录生成、地图选择和回忆卡需要启用JavaScript。你仍可使用浏览器页面查找。</div></noscript>{''.join(parts)}<footer class="footer"><b>学习不是拥有更多答案，而是更忠实地面对真理。</b><p>原创学习导读 · 不替代原著 · 没有66卷逐卷课程 · 所有核心内容与图形均内嵌，下载后可离线阅读。来源链接需要联网。</p><p>源码：<a href="https://github.com/07-Je-GT-Love-Personal-20260918/{SLUG}">{SLUG}</a></p></footer></main></div><button id="backtop" class="backtop" aria-label="返回顶部">↑</button><script>const DATA={data};</script><script>{js}</script></body></html>'''
+data=json.dumps({'places':PLACES,'timeline':TIMELINE,'tree':TREE},ensure_ascii=False).replace('</','<\\/')
+output=f'''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="《自由教育传统：基督教古典教育哲学》深读：教育之树、四部分、七艺、哲学神学、改革宗辨析与课堂案例。"><meta name="theme-color" content="#153e38"><title>{TITLE}｜2026-10-13 v3</title><style>{css}</style></head><body><a class="skip" href="#main">跳到正文</a><header class="topbar"><div class="top-inner"><a class="brand" href="#top"><span class="brand-mark">Cc</span><span><strong>基督教古典教育</strong><small>A REFORMED READING ATLAS</small></span></a><div class="toolbar"><button id="fontToggle" class="font-button" aria-label="调整正文字号">字 A+</button><button id="themeToggle">☾ 深色</button><button id="tocToggle" aria-controls="sidebar" aria-expanded="true">隐藏目录</button></div></div><div class="progress-track"><div id="progress"></div></div></header><div class="layout"><aside id="sidebar" aria-label="详细目录"><div class="toc-label">CONTENTS / 学习目录</div><label class="toc-depth-label">目录深度 <select id="tocDepth"><option value="4">四级 · 全部</option><option value="3">三级 · 到书名</option><option value="2">二级 · 到类别</option><option value="1">一级 · 大纲</option></select></label><nav id="toc"></nav><p class="source-note">17个学习区段<br>31项主题书目<br>16个年代节点<br>10个地理位置<br>10道本书讨论</p></aside><main id="main"><div class="hero" id="top"><div class="hero-grid"><div><div class="eyebrow">READ · THINK · SPEAK · LIVE</div><h1>自由教育传统<br><em>从教育之树<br>到真实课堂</em></h1><p>重点研读 Kevin Clark 与 Ravi Jain 的《自由教育传统：基督教古典教育哲学》。<br>循着敬虔、身体、乐教、七艺、哲学与神学，理解一个人如何学习、判断与服事。</p><div class="hero-links"><a href="#sec-lat">开始深入阅读 ↗</a><a href="#timeline">先理清人物与年代</a><a href="#book-library">浏览31项主题书目</a></div></div>{bookart}</div><div class="hero-meta"><span>主读：The Liberal Arts Tradition</span><span>Kevin Clark · Ravi Jain</span><span>导读更新：2026.10.13 · v3</span></div></div><div class="read-route"><span>◎ 本书框架与目录</span><span>⌖ 历史核对</span><span>◇ 改革宗评析</span><span>✦ 家庭与课堂应用</span></div><noscript><div class="callout">正文与答案均可完整阅读；搜索、目录生成、地图选择和回忆卡需要启用JavaScript。你仍可使用浏览器页面查找。</div></noscript>{''.join(parts)}<footer class="footer"><b>学习不是拥有更多答案，而是更忠实地面对真理。</b><p>原创学习导读 · 不替代原著 · 没有66卷逐卷课程 · 所有核心内容与图形均内嵌，下载后可离线阅读。来源链接需要联网。</p><p>源码：<a href="https://github.com/07-Je-GT-Love-Personal-20260918/{SLUG}">{SLUG}</a></p></footer></main></div><button id="backtop" class="backtop" aria-label="返回顶部">↑</button><script>const DATA={data};</script><script>{js}</script></body></html>'''
 (ROOT/'public').mkdir(exist_ok=True)
 (ROOT/'public/index.html').write_text(output)
 (ROOT/'docs').mkdir(exist_ok=True)
 (ROOT/'docs/index.html').write_text(output)
 (ROOT/'docs/.nojekyll').touch()
-print(json.dumps({'html_bytes':len(output.encode()),'sections':len(parts),'timeline':len(TIMELINE),'discussion':len(QUESTIONS)},ensure_ascii=False))
+print(json.dumps({'html_bytes':len(output.encode()),'sections':len(parts),'timeline':len(TIMELINE),'discussion':10},ensure_ascii=False))
