@@ -38,7 +38,7 @@ python3 build.py
 
 修改后重新运行构建，再一起提交源文件和生成文件。
 GitHub Pages使用main分支的/docs，推送后自动更新。
-Vercel连接此Git仓库，采用静态输出public；无需环境密钥。
+Vercel本次通过已授权API直接发布静态文件，生产站已上线。GitHub集成尚未授权此仓库，因此尚无推送自动部署；可在Vercel中补上GitHub集成，或继续从同一项目发布public目录。
 Surge用已登录的CLI执行 `surge publish public cce-reformed-study-20261012-v1.surge.sh` 更新。
 三个平台保持相同slug，内容更新时不要另换域名。
 
