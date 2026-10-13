@@ -14,14 +14,33 @@ $('#fontToggle').addEventListener('click',()=>{font=font>=21?16:font+1;document.
 const sections=$$('main .section');const nav=$('#toc');
 function tocEntry(id,title,path){const a=document.createElement('a'),n=document.createElement('span'),t=document.createElement('span');a.href='#'+id;a.dataset.number=path;a.dataset.depth=String(path.split('.').length);if(a.dataset.depth!=='1')a.className='sub depth-'+a.dataset.depth;n.className='toc-number';n.textContent=path;t.className='toc-text';t.textContent=title;a.append(n,t);nav.append(a)}
 sections.forEach((s,index)=>{const root=String(index+1),stack=[{level:2,path:root,children:0}];tocEntry(s.id,s.querySelector('h2').textContent,root);s.querySelectorAll('h3,h4,h5').forEach((h,i)=>{if(h.closest('.time-card,.qa,.source-list,.place-info,.chapter-group'))return;const level=Number(h.tagName.slice(1));while(stack.length>1&&stack.at(-1).level>=level)stack.pop();const parent=stack.at(-1),path=parent.path+'.'+(++parent.children);stack.push({level,path,children:0});h.id=h.id||s.id+'-sub-'+i;tocEntry(h.id,h.textContent,path);const badge=document.createElement('span');badge.className='heading-number';badge.textContent=path+' ';h.prepend(badge)})});
-$('#tocDepth').addEventListener('change',e=>{$$('#toc a').forEach(a=>a.hidden=Number(a.dataset.depth)>Number(e.target.value))});
+const tocLinks=$$('#toc a'),collapsed=new Set();
+for(const a of tocLinks){const row=document.createElement('div');row.className='toc-row';a.before(row);row.append(a);const path=a.dataset.number,children=tocLinks.filter(x=>x.dataset.number.startsWith(path+'.'));if(children.length){const b=document.createElement('button');b.className='toc-fold';b.dataset.branch=path;b.textContent='▾';b.setAttribute('aria-expanded','true');b.setAttribute('aria-label','折叠 '+a.textContent);b.addEventListener('click',()=>{collapsed.has(path)?collapsed.delete(path):collapsed.add(path);renderToc()});row.append(b)}}
+function renderToc(){const depth=Number($('#tocDepth').value);for(const a of tocLinks){const path=a.dataset.number,hide=Number(a.dataset.depth)>depth||[...collapsed].some(p=>path.startsWith(p+'.'));a.hidden=hide;a.parentElement.hidden=hide}$$('.toc-fold').forEach(b=>{const shut=collapsed.has(b.dataset.branch);b.textContent=shut?'▸':'▾';b.setAttribute('aria-expanded',String(!shut));b.setAttribute('aria-label',(shut?'展开 ':'折叠 ')+b.previousElementSibling.textContent)})}
+$('#tocDepth').addEventListener('change',renderToc);
+$('#tocCollapse').addEventListener('click',()=>{$$('.toc-fold').forEach(b=>{if(b.dataset.branch.includes('.'))collapsed.add(b.dataset.branch)});renderToc()});
+$('#tocExpand').addEventListener('click',()=>{collapsed.clear();$('#tocDepth').value='4';renderToc()});
+function headerVisible(show){document.body.classList.toggle('header-hidden',!show);$('#pageHeader').hidden=!show;$('#headerShow').hidden=show;save('cce-header-hidden',String(!show));window.requestAnimationFrame(()=>measureHeader())}
+function measureHeader(){document.documentElement.style.setProperty('--header-height',document.body.classList.contains('header-hidden')?'0px':$('#pageHeader').getBoundingClientRect().height+'px')}
+$('#headerHide').addEventListener('click',()=>{headerVisible(false);$('#headerShow').focus()});$('#headerShow').addEventListener('click',()=>{headerVisible(true);$('#headerHide').focus()});
+const grip=$('#tocResize');let dragging=false;
+function maxWidth(){return Math.max(220,Math.min(520,window.innerWidth-(mobile.matches?28:360)))}
+function setWidth(value){const width=Math.max(220,Math.min(maxWidth(),value));document.documentElement.style.setProperty('--nav',width+'px');grip.setAttribute('aria-valuenow',String(Math.round(width)));grip.setAttribute('aria-valuemax',String(maxWidth()));save('cce-nav-width',String(width))}
+setWidth(Number(read('cce-nav-width'))||265);
+grip.addEventListener('pointerdown',e=>{if(e.button!==0)return;dragging=true;grip.setPointerCapture(e.pointerId);document.body.classList.add('resizing');e.preventDefault()});grip.addEventListener('pointermove',e=>{if(dragging)setWidth(e.clientX)});
+function stopResize(){dragging=false;document.body.classList.remove('resizing')}
+grip.addEventListener('pointerup',stopResize);grip.addEventListener('pointercancel',stopResize);grip.addEventListener('lostpointercapture',stopResize);
+grip.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();setWidth(e.key==='Home'?220:e.key==='End'?maxWidth():Number(grip.getAttribute('aria-valuenow'))+(e.key==='ArrowRight'?20:-20))});
+window.addEventListener('resize',()=>{setWidth(Number(grip.getAttribute('aria-valuenow')));measureHeader()});
+if('ResizeObserver'in window)new ResizeObserver(measureHeader).observe($('#pageHeader'));
+headerVisible(read('cce-header-hidden')!=='true');
 const bookCards=$$('.book-card');
 function filterBooks(){const q=$('#bookSearch').value.trim().toLowerCase(),lang=$('#bookLanguage').value;bookCards.forEach(c=>c.hidden=!(c.textContent.toLowerCase().includes(q)&&(lang==='all'||c.dataset.cn===lang)));$$('.book-category').forEach(c=>c.hidden=!Array.from(c.querySelectorAll('.book-card')).some(b=>!b.hidden));$('#bookStatus').textContent='显示 '+bookCards.filter(c=>!c.hidden).length+' / '+bookCards.length+' 项书目。';}
 function resetBooks(){$('#bookSearch').value='';$('#bookLanguage').value='all';filterBooks()}
 $('#bookSearch').addEventListener('input',filterBooks);$('#bookLanguage').addEventListener('change',filterBooks);$('#bookReset').addEventListener('click',resetBooks);resetBooks();
 nav.addEventListener('click',e=>{const a=e.target.closest('a');if(a){const t=document.getElementById(a.getAttribute('href').slice(1));if(t&&t.closest('.book-category'))resetBooks()}});
 nav.addEventListener('click',e=>{if(e.target.closest('a')&&mobile.matches)toc(false)});
-const links=$$('#toc>a:not(.sub)');
+const links=$$('#toc a:not(.sub)');
 if('IntersectionObserver'in window){const observer=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting){links.forEach(a=>a.classList.toggle('current',a.hash==='#'+e.target.id))}})},{rootMargin:'-15% 0px -70% 0px'});sections.forEach(s=>observer.observe(s))}
 function progress(){const h=document.documentElement;const d=h.scrollHeight-h.clientHeight;$('#progress').style.width=(d>0?100*h.scrollTop/d:0)+'%'}window.addEventListener('scroll',progress,{passive:true});progress();
 $('#backtop').addEventListener('click',()=>window.scrollTo({top:0,behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth'}));
@@ -58,4 +77,12 @@ $('#cyclePlay').addEventListener('click',()=>{if(cycleTimer){stopCycle();return}
 cycleStep(0);if(reduced.matches)stopString();
 reduced.addEventListener?.('change',()=>{if(reduced.matches)stopString()});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){stopCycle();stopString()}});
+let pathIndex=0,pathTimer=null;
+const pathNames=['定向：为何学习？','参与：怎样进入？','辨明：怎样判断？','承担：怎样生活？'];
+function pathStep(i){pathIndex=i;$$('[data-path-card]').forEach(c=>c.classList.toggle('is-active',Number(c.dataset.pathCard)===i));$$('[data-path]').forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.path)===i)));$('#pathStatus').textContent=pathNames[i]}
+function stopPath(){clearInterval(pathTimer);pathTimer=null;$('#memoryPath').classList.remove('playing');$('#pathPlay').textContent='▶ 播放四问';$('#pathPlay').setAttribute('aria-pressed','false')}
+$$('[data-path]').forEach(b=>b.addEventListener('click',()=>{stopPath();pathStep(Number(b.dataset.path))}));
+$('#pathPlay').addEventListener('click',()=>{if(pathTimer){stopPath();return}pathStep(0);$('#memoryPath').classList.add('playing');$('#pathPlay').textContent='Ⅱ 暂停';$('#pathPlay').setAttribute('aria-pressed','true');pathTimer=setInterval(()=>{if(pathIndex===3){stopPath();$('#pathStatus').textContent='一轮完成。暂藏提示，举例复述四问。';return}pathStep(pathIndex+1)},5000)});
+$('#pathRecall').addEventListener('click',()=>{const hide=$('#pathRecall').getAttribute('aria-expanded')==='true';$$('.path-hint').forEach(p=>p.hidden=hide);$('#pathRecall').setAttribute('aria-expanded',String(!hide));$('#pathRecall').textContent=hide?'显示提示，核对理解':'暂藏提示，自行复述'});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)stopPath()});pathStep(0);
 })();
